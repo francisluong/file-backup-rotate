@@ -25,6 +25,7 @@ import (
 )
 
 var cfgFile string
+var filePath string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -47,16 +48,10 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.file-backup-rotate.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().StringVar(&filePath, "file", "filePath", "File path for the file you want to back up")
+	rootCmd.MarkFlagRequired("file")
+	viper.BindPFlag("args.filePath", rootCmd.PersistentFlags().Lookup("file"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -72,7 +67,7 @@ func initConfig() {
 		// Search config in home directory with name ".file-backup-rotate" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".file-backup-rotate")
+		viper.SetConfigName("file-backup-rotate")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
