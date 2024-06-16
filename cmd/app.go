@@ -17,20 +17,30 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package cmd
 
 import (
-	"github.com/spf13/cobra"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/spf13/viper"
 )
 
-// onceCmd represents the once command
-var onceCmd = &cobra.Command{
-	Use:   "once",
-	Short: "Backup a file when it has changed and rotate the backups",
-	Long:  `Backup a file when it has changed and rotate the backups`,
-	Run: func(cmd *cobra.Command, args []string) {
-		Init()
-		ProcessFile()
-	},
+var logger *log.Logger
+
+func formatBackupFile(filePath string, backupNumID int) string {
+	return fmt.Sprintf("%v.%v", filePath, backupNumID)
 }
 
-func init() {
-	rootCmd.AddCommand(onceCmd)
+func ProcessFile() {
+	filePath := viper.GetString("args.filePath")
+	backupFilePath := formatBackupFile(filePath, 1)
+	logger.Printf("filePath: %v -> backupFilePath: %v", filePath, backupFilePath)
+	error := CrudeBackup(filePath, backupFilePath)
+	if error != nil {
+		logger.Printf("Error returned: %v", error)
+	}
+}
+
+func Init() {
+	logger = log.New(os.Stdout, "file-backup-rotate: ", log.Ldate|log.Ltime|log.Lshortfile)
+	logger.Println("Init!")
 }
