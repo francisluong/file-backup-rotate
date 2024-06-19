@@ -18,6 +18,9 @@ package cmd
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
+	"hash"
 	"os"
 )
 
@@ -111,4 +114,87 @@ func CrudeBackup(filepath string, backupFilePath string) error {
 	fc.doCopy(false)
 	fc.tearDown()
 	return fc.err
+}
+
+type FileHasher struct {
+	readPath    string
+	readFD      *os.File
+	readBuf     *bufio.Reader
+	hasher      hash.Hash
+	writeBuf    *bufio.Writer
+	err         error
+	actionDescr string
+}
+
+func (fh *FileHasher) _initReader() {
+	if fh.err != nil {
+		return
+	}
+	fh.actionDescr = "open reader"
+	fh.readFD, fh.err = os.Open(fh.readPath)
+	logger.Printf("opened reader for %v", fh.readPath)
+}
+
+func (fh *FileHasher) _initReadBuf() {
+	if fh.err != nil {
+		return
+	}
+	fh.actionDescr = "init read buffer"
+	fh.readBuf = bufio.NewReader(fh.readFD)
+}
+
+func (fh *FileHasher) _initHasher() {
+	if fh.err != nil {
+		return
+	}
+	fh.actionDescr = "open hasher"
+	fh.hasher = sha256.New()
+}
+
+func (fh *FileHasher) _initWriteBuf() {
+	if fh.err != nil {
+		return
+	}
+	fh.actionDescr = "init write buffer"
+	fh.writeBuf =
+		bufio.NewWriter(fh.hasher)
+}
+
+func (fh *FileHasher) GetSum() []byte {
+	fh._initReader()
+	defer fh.readFD.Close()
+	fh._initReadBuf()
+	fh._initHasher()
+	fh._initWriteBuf()
+	buf := make([]byte, 1024)
+	var bytesReadCount int
+	for {
+		if fh.err != nil {
+			return nil
+		}
+		// read a chunk
+		fh.actionDescr = "loop: read file contents"
+		bytesReadCount, fh.err = fh.readBuf.Read(buf)
+		if bytesReadCount == 0 {
+			// exit condition: zero bytes read and err will be EOF
+			fh.actionDescr = "loop EXIT: flush buffer"
+			if fh.err = fh.writeBuf.Flush(); fh.err != nil {
+				return nil
+			}
+			fh.actionDescr = "loop EXIT: write successful!"
+			return fh.hasher.Sum(nil)
+		} else {
+			if fh.err != nil {
+				return nil
+			}
+			// write a chunk
+			fh.actionDescr = "loop: write buffer"
+			_, fh.err = fh.writeBuf.Write(buf[:bytesReadCount])
+		}
+	}
+}
+
+func DoFileSum(filepath string) (string, error) {
+	fh := &FileHasher{readPath: filepath}
+	return hex.EncodeToString(fh.GetSum()), fh.err
 }
