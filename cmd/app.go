@@ -38,6 +38,8 @@ func ProcessFile() {
 	if error != nil {
 		logger.Printf("Error returned: %v", error)
 	}
+	sum, _ := DoFileSum(filePath)
+	logger.Printf("sum: %v", sum)
 }
 
 func Init() {
