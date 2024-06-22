@@ -25,50 +25,106 @@ import (
 )
 
 type fileCopier struct {
-	readPath    string
-	readFD      *os.File
-	readBuf     *bufio.Reader
-	writePath   string
-	writeFD     *os.File
-	writeBuf    *bufio.Writer
-	err         error
-	actionDescr string
+	readPath          string
+	readFD            *os.File
+	readBuf           *bufio.Reader
+	writePath         string
+	writeFD           *os.File
+	writeBuf          *bufio.Writer
+	err               error
+	actionDescr       string
+	fileSumsMatch     bool
+	shouldCompareHash bool
+	verbose           bool
+}
+
+func NewFileCopier(filepath string, backupFilePath string) *fileCopier {
+	fc := &fileCopier{
+		readPath:          filepath,
+		writePath:         backupFilePath,
+		fileSumsMatch:     false,
+		shouldCompareHash: false,
+		verbose:           false,
+		actionDescr:       "init",
+	}
+	return fc
+}
+
+func (fc *fileCopier) CopyFile() {
+	fc.compareFileSums()
+	fc.openReadFD()
+	fc.openWriteFD()
+	fc.doCopy()
+	fc.tearDown()
+}
+
+func (fc *fileCopier) shouldNotContinue() bool {
+	if fc.err != nil || fc.fileSumsMatch {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (fc *fileCopier) compareFileSums() {
+	if fc.shouldNotContinue() || !fc.shouldCompareHash {
+		return
+	}
+	fc.actionDescr = "comparing file names"
+	if fc.readPath == fc.writePath {
+		fc.fileSumsMatch = true
+		fc.actionDescr = "Confirmed: File Paths Match"
+		return
+	}
+	fc.actionDescr = "comparing file sums"
+	readFileSum, _ := DoFileSum(fc.readPath)
+	if fc.verbose {
+		logger.Printf("readFileSum: %v", readFileSum)
+	}
+	writeFileSum, _ := DoFileSum(fc.writePath)
+	if fc.verbose {
+		logger.Printf("writeFileSum: %v", writeFileSum)
+	}
+	if readFileSum == writeFileSum {
+		fc.fileSumsMatch = true
+	}
+	fc.actionDescr = "Confirmed: File Sums Match"
 }
 
 func (fc *fileCopier) openReadFD() {
-	if fc.err != nil {
+	if fc.shouldNotContinue() {
 		return
 	}
 	fc.actionDescr = "open reader"
 	fc.readFD, fc.err = os.Open(fc.readPath)
 	logger.Printf("opened reader for %v", fc.readPath)
-	if fc.err != nil {
+	if fc.shouldNotContinue() {
 		return
 	}
 	fc.readBuf = bufio.NewReader(fc.readFD)
 }
 
 func (fc *fileCopier) openWriteFD() {
-	if fc.err != nil {
+	if fc.shouldNotContinue() {
 		return
 	}
 	fc.actionDescr = "open writer"
 	fc.writeFD, fc.err = os.Create(fc.writePath)
-	if fc.err != nil {
+	if fc.shouldNotContinue() {
 		return
 	}
 	logger.Printf("opened writer for %v", fc.writePath)
 	fc.writeBuf = bufio.NewWriter(fc.writeFD)
 }
 
-func (fc *fileCopier) doCopy(verbose bool) {
+func (fc *fileCopier) doCopy() {
 	buf := make([]byte, 1024)
 	var bytesReadCount int
-	if verbose {
+	if fc.verbose {
 		logger.Print("init: doCopy")
 	}
 	for {
-		if fc.err != nil {
+		if fc.shouldNotContinue() {
 			return
 		}
 		// read a chunk
@@ -84,13 +140,13 @@ func (fc *fileCopier) doCopy(verbose bool) {
 			fc.actionDescr = "loop EXIT: write successful!"
 			return
 		} else {
-			if fc.err != nil {
+			if fc.shouldNotContinue() {
 				return
 			}
 			// write a chunk
 			fc.actionDescr = "loop: write buffer"
 			_, fc.err = fc.writeBuf.Write(buf[:bytesReadCount])
-			if verbose {
+			if fc.verbose {
 				logger.Printf(" - buffered: %v", bytesReadCount)
 			}
 		}
@@ -98,22 +154,11 @@ func (fc *fileCopier) doCopy(verbose bool) {
 }
 
 func (fc *fileCopier) tearDown() {
-	if fc.err != nil {
+	if fc.shouldNotContinue() {
 		logger.Printf("last action: %v", fc.actionDescr)
 	}
 	fc.readFD.Close()
 	fc.writeFD.Close()
-}
-
-func CrudeBackup(filepath string, backupFilePath string) error {
-	// sourced heavily from https://stackoverflow.com/a/9739903
-	//    ...and https://go.dev/blog/errors-are-values
-	fc := &fileCopier{readPath: filepath, writePath: backupFilePath}
-	fc.openReadFD()
-	fc.openWriteFD()
-	fc.doCopy(false)
-	fc.tearDown()
-	return fc.err
 }
 
 type FileHasher struct {

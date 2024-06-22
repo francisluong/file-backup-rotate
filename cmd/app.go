@@ -34,9 +34,11 @@ func ProcessFile() {
 	filePath := viper.GetString("args.filePath")
 	backupFilePath := formatBackupFile(filePath, 1)
 	logger.Printf("filePath: %v -> backupFilePath: %v", filePath, backupFilePath)
-	error := CrudeBackup(filePath, backupFilePath)
-	if error != nil {
-		logger.Printf("Error returned: %v", error)
+	fc := NewFileCopier(filePath, backupFilePath)
+	fc.shouldCompareHash = true
+	fc.CopyFile()
+	if fc.err != nil {
+		logger.Printf("Error returned: %v", fc.err)
 	}
 	sum, _ := DoFileSum(filePath)
 	logger.Printf("sum: %v", sum)
