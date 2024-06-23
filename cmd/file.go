@@ -58,6 +58,13 @@ func (fc *fileCopier) CopyFile() {
 	fc.tearDown()
 }
 
+func (fc *fileCopier) PrecheckCopyIsNeeded() bool {
+	// return true if file copy should occur
+	fc.shouldCompareHash = true
+	fc.compareFileSums()
+	return !fc.shouldNotContinue()
+}
+
 func (fc *fileCopier) shouldNotContinue() bool {
 	if fc.err != nil || fc.fileSumsMatch {
 		return true
@@ -180,7 +187,7 @@ func (fh *FileHasher) _initReader() {
 	}
 	fh.actionDescr = "open reader"
 	fh.readFD, fh.err = os.Open(fh.readPath)
-	logger.Printf("opened reader for %v", fh.readPath)
+	logger.Printf("opened reader for FileHasher %v", fh.readPath)
 }
 
 func (fh *FileHasher) _initReadBuf() {
