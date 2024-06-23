@@ -26,6 +26,7 @@ import (
 
 var cfgFile string
 var filePath string
+var maxCount int
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -50,8 +51,10 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.file-backup-rotate.yaml)")
 	rootCmd.PersistentFlags().StringVar(&filePath, "file", "filePath", "File path for the file you want to back up")
+	rootCmd.PersistentFlags().IntVar(&maxCount, "max", 5, "maximum backup file number: ${filename}.{maxCount}")
 	rootCmd.MarkFlagRequired("file")
 	viper.BindPFlag("args.filePath", rootCmd.PersistentFlags().Lookup("file"))
+	viper.BindPFlag("args.maxCount", rootCmd.PersistentFlags().Lookup("max"))
 }
 
 // initConfig reads in config file and ENV variables if set.

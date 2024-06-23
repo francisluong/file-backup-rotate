@@ -30,18 +30,24 @@ func formatBackupFile(filePath string, backupNumID int) string {
 	return fmt.Sprintf("%v.%v", filePath, backupNumID)
 }
 
-func ProcessFile() {
-	filePath := viper.GetString("args.filePath")
-	backupFilePath := formatBackupFile(filePath, 1)
+func DoFirstBackup(filePath string, backupFilePath string) {
 	logger.Printf("filePath: %v -> backupFilePath: %v", filePath, backupFilePath)
 	fc := NewFileCopier(filePath, backupFilePath)
 	fc.shouldCompareHash = true
 	fc.CopyFile()
 	if fc.err != nil {
 		logger.Printf("Error returned: %v", fc.err)
+	} else {
+		logger.Printf("Completed - Last Action: %v", fc.actionDescr)
 	}
-	sum, _ := DoFileSum(filePath)
-	logger.Printf("sum: %v", sum)
+}
+
+func ProcessFile() {
+	filePath := viper.GetString("args.filePath")
+	maxCount := viper.GetString("args.maxCount")
+	logger.Printf("ProcessFile ARGS: filePath: %v, maxCount: %v", filePath, maxCount)
+	backupFilePath := formatBackupFile(filePath, 1)
+	DoFirstBackup(filePath, backupFilePath)
 }
 
 func Init() {
