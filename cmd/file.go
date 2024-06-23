@@ -67,20 +67,23 @@ func (fc *fileCopier) shouldNotContinue() bool {
 }
 
 func (fc *fileCopier) compareFileSums() {
-	if fc.shouldNotContinue() || !fc.shouldCompareHash {
-		return
-	}
 	fc.actionDescr = "comparing file names"
 	if fc.readPath == fc.writePath {
 		fc.fileSumsMatch = true
 		fc.actionDescr = "Confirmed: File Paths Match"
 		return
 	}
-	fc.actionDescr = "comparing file sums"
-	readFileSum, _ := DoFileSum(fc.readPath)
+	// to pick up file not found errors, we calc read sum...
+	fc.actionDescr = "calc readFile sum"
+	readFileSum, readErr := DoFileSum(fc.readPath)
 	if fc.verbose {
 		logger.Printf("readFileSum: %v", readFileSum)
 	}
+	fc.err = readErr
+	if fc.shouldNotContinue() || !fc.shouldCompareHash {
+		return
+	}
+	fc.actionDescr = "calc writeFile sum"
 	writeFileSum, _ := DoFileSum(fc.writePath)
 	if fc.verbose {
 		logger.Printf("writeFileSum: %v", writeFileSum)

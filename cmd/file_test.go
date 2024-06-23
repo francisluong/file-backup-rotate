@@ -60,6 +60,11 @@ func TestFileCopier_shouldNotContinue(t *testing.T) {
 
 func TestFileCopier_compareFileSums(t *testing.T) {
 	t.Parallel()
+	// should return due to
+	fileNotFoundFC := NewFileCopier("file-not-found", "badPath2")
+	fileNotFoundFC.compareFileSums()
+	assert.Equal(t, "calc readFile sum", fileNotFoundFC.actionDescr)
+	assert.EqualError(t, fileNotFoundFC.err, "open file-not-found: no such file or directory")
 	fc := NewFileCopier(licenseFilePath, "otherPath")
 	// should return immediately if !shouldCompareHash
 	assert.Equal(t, false, fc.shouldCompareHash)
