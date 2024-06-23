@@ -58,6 +58,13 @@ func (fc *fileCopier) CopyFile() {
 	fc.tearDown()
 }
 
+func (fc *fileCopier) PrecheckCopyIsNeeded() bool {
+	// return true if file copy should occur
+	fc.shouldCompareHash = true
+	fc.compareFileSums()
+	return !fc.shouldNotContinue()
+}
+
 func (fc *fileCopier) shouldNotContinue() bool {
 	if fc.err != nil || fc.fileSumsMatch {
 		return true
@@ -67,20 +74,23 @@ func (fc *fileCopier) shouldNotContinue() bool {
 }
 
 func (fc *fileCopier) compareFileSums() {
-	if fc.shouldNotContinue() || !fc.shouldCompareHash {
-		return
-	}
 	fc.actionDescr = "comparing file names"
 	if fc.readPath == fc.writePath {
 		fc.fileSumsMatch = true
 		fc.actionDescr = "Confirmed: File Paths Match"
 		return
 	}
-	fc.actionDescr = "comparing file sums"
-	readFileSum, _ := DoFileSum(fc.readPath)
+	// to pick up file not found errors, we calc read sum...
+	fc.actionDescr = "calc readFile sum"
+	readFileSum, readErr := DoFileSum(fc.readPath)
 	if fc.verbose {
 		logger.Printf("readFileSum: %v", readFileSum)
 	}
+	fc.err = readErr
+	if fc.shouldNotContinue() || !fc.shouldCompareHash {
+		return
+	}
+	fc.actionDescr = "calc writeFile sum"
 	writeFileSum, _ := DoFileSum(fc.writePath)
 	if fc.verbose {
 		logger.Printf("writeFileSum: %v", writeFileSum)
@@ -177,7 +187,7 @@ func (fh *FileHasher) _initReader() {
 	}
 	fh.actionDescr = "open reader"
 	fh.readFD, fh.err = os.Open(fh.readPath)
-	logger.Printf("opened reader for %v", fh.readPath)
+	logger.Printf("opened reader for FileHasher %v", fh.readPath)
 }
 
 func (fh *FileHasher) _initReadBuf() {
